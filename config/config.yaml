@@ -1,0 +1,63 @@
+# Paths to raw data (project root relative)
+paths:
+  raw_events: "data/raw/SPX_index leavers & joiners_17-Feb-2026.xlsx"
+  raw_prices: "data/raw/daily.csv"
+  raw_factors: null  # optional: path to Fama-French CSV if added later
+  interim: "data/interim"
+  processed: "data/processed"
+  results_figures: "results/figures"
+  results_tables: "results/tables"
+
+# Event study
+event_study:
+  pre_window: 60
+  post_window: 60
+  benchmark: "market"  # market | sector
+  announcement_date_field: "announcement_date"
+  effective_date_field: "effective_date"
+
+# Features
+features:
+  momentum_windows: [21, 63, 126, 252]   # 1m, 3m, 6m, 12m trading days
+  volatility_windows: [21, 63, 126]
+  label_forward_months: 3
+  label_forward_trading_days: 63
+  min_history_days: 252
+
+# Models
+models:
+  types: ["logistic", "random_forest", "gradient_boosting", "xgboost"]
+  train_years: 5
+  test_years: 1
+  random_state: 42
+  logistic:
+    max_iter: 1000
+    C: 1.0
+  random_forest:
+    n_estimators: 200
+    max_depth: 10
+    min_samples_leaf: 50
+  gradient_boosting:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.1
+  xgboost:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.1
+
+# Backtest
+backtest:
+  rebalance_freq: "monthly"
+  holding_period_months: 3
+  top_decile: 0.10
+  gross_exposure: 2.0
+  net_exposure: 0.0
+  transaction_cost_bps: 10
+  weighting: "equal"  # equal | probability | risk_parity
+
+# Robustness
+robustness:
+  holding_periods: [1, 3, 6, 12]
+  thresholds: [0.05, 0.10, 0.20]
+  feature_subsets: ["full", "momentum_only", "size_momentum"]
