@@ -62,16 +62,35 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODEL-01 to MODEL-05 | Phase 1 | Pending |
-| PERF-01 to PERF-05 | Phase 2 | Pending |
-| ROBUST-01 to ROBUST-04 | Phase 2 | Pending |
-| NB-01 to NB-09 | Phase 3 | Pending |
+| MODEL-01 | Phase 1 — Model Quality Analysis | Pending |
+| MODEL-02 | Phase 1 — Model Quality Analysis | Pending |
+| MODEL-03 | Phase 1 — Model Quality Analysis | Pending |
+| MODEL-04 | Phase 1 — Model Quality Analysis | Pending |
+| MODEL-05 | Phase 1 — Model Quality Analysis | Pending |
+| PERF-01 | Phase 2 — Performance & Robustness | Pending |
+| PERF-02 | Phase 2 — Performance & Robustness | Pending |
+| PERF-03 | Phase 2 — Performance & Robustness | Pending |
+| PERF-04 | Phase 2 — Performance & Robustness | Pending |
+| PERF-05 | Phase 2 — Performance & Robustness | Pending |
+| ROBUST-01 | Phase 2 — Performance & Robustness | Pending |
+| ROBUST-02 | Phase 2 — Performance & Robustness | Pending |
+| ROBUST-03 | Phase 2 — Performance & Robustness | Pending |
+| ROBUST-04 | Phase 2 — Performance & Robustness | Pending |
+| NB-01 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-02 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-03 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-04 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-05 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-06 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-07 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-08 | Phase 3 — Master Deliverable Notebook | Pending |
+| NB-09 | Phase 3 — Master Deliverable Notebook | Pending |
 
 **Coverage:**
-- v1 requirements: 18 total
-- Mapped to phases: 18
+- v1 requirements: 23 total (MODEL: 5, PERF: 5, ROBUST: 4, NB: 9)
+- Mapped to phases: 23
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap creation*
