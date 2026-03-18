@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, brier_score_loss, accuracy_score
 from sklearn.preprocessing import StandardScaler
 
 
@@ -37,13 +37,14 @@ def train_and_evaluate(
     X_test: pd.DataFrame,
     y_test: pd.Series,
     scale: bool = False,
+    sample_weight: np.ndarray | None = None,
 ) -> Dict[str, float]:
-    """Fit model and return ROC-AUC, precision, recall, F1. Optionally scale X."""
+    """Fit model and return ROC-AUC, precision, recall, F1, Brier score, OOS accuracy. Optionally scale X."""
     if scale:
         scaler = StandardScaler()
         X_train = pd.DataFrame(scaler.fit_transform(X_train), index=X_train.index, columns=X_train.columns)
         X_test = pd.DataFrame(scaler.transform(X_test), index=X_test.index, columns=X_test.columns)
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=sample_weight)
     proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_test)
     pred = (proba >= 0.5).astype(int)
     res = {}
@@ -54,6 +55,8 @@ def train_and_evaluate(
     res["precision"] = precision_score(y_test, pred, zero_division=0)
     res["recall"] = recall_score(y_test, pred, zero_division=0)
     res["f1"] = f1_score(y_test, pred, zero_division=0)
+    res["brier_score"] = brier_score_loss(y_test, proba)
+    res["oos_accuracy"] = float(accuracy_score(y_test, pred))
     return res
 
 
@@ -66,6 +69,7 @@ def precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int = 100) -> flo
 
 
 def get_feature_columns(df: pd.DataFrame, exclude: List[str] | None = None) -> List[str]:
-    """Numeric columns suitable as features (exclude ids, dates, labels)."""
+    """Numeric columns suitable as features (exclude ids, dates, labels, and forward return columns)."""
     exclude = exclude or ["date", "permno", "ticker", "label_join", "label_leave"]
-    return [c for c in df.select_dtypes(include=[np.number]).columns if c not in exclude]
+    return [c for c in df.select_dtypes(include=[np.number]).columns
+            if c not in exclude and not c.startswith("fwd_ret_")]

@@ -27,7 +27,7 @@ def compute_performance_metrics(
         excess = ret
     ann_ret = (1 + ret).prod() ** (periods_per_year / n) - 1 if n else np.nan
     ann_vol = ret.std() * np.sqrt(periods_per_year) if n > 1 else np.nan
-    sharpe = (excess.mean() / ret.std() * np.sqrt(periods_per_year)) if ret.std() > 0 else np.nan
+    sharpe = (excess.mean() / excess.std() * np.sqrt(periods_per_year)) if excess.std() > 0 else np.nan
     downside = ret[ret < 0].std()
     sortino = (excess.mean() / downside * np.sqrt(periods_per_year)) if downside > 0 else np.nan
     cum = (1 + ret).cumprod()

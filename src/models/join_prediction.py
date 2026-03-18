@@ -21,13 +21,15 @@ def _get_model(name: str, config: dict, random_state: int):
     cfg = config.get("models", {})
     if name == "logistic":
         p = cfg.get("logistic", {})
-        return LogisticRegression(max_iter=p.get("max_iter", 1000), C=p.get("C", 1.0), random_state=random_state)
+        return LogisticRegression(max_iter=p.get("max_iter", 1000), C=p.get("C", 1.0),
+                                  class_weight="balanced", random_state=random_state)
     if name == "random_forest":
         p = cfg.get("random_forest", {})
         return RandomForestClassifier(
             n_estimators=p.get("n_estimators", 200),
             max_depth=p.get("max_depth", 10),
             min_samples_leaf=p.get("min_samples_leaf", 50),
+            class_weight="balanced",
             random_state=random_state,
         )
     if name == "gradient_boosting":
@@ -44,6 +46,7 @@ def _get_model(name: str, config: dict, random_state: int):
             n_estimators=p.get("n_estimators", 100),
             max_depth=p.get("max_depth", 4),
             learning_rate=p.get("learning_rate", 0.1),
+            scale_pos_weight=1,
             random_state=random_state,
             use_label_encoder=False,
             eval_metric="logloss",
@@ -97,7 +100,22 @@ def run_join_prediction(
             y_train, y_test = y.loc[train_idx], y.loc[test_idx]
             if y_train.nunique() < 2 or y_test.nunique() < 2:
                 continue
-            met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale)
+            # Compute class imbalance ratio for this fold
+            n_pos = y_train.sum()
+            n_neg = len(y_train) - n_pos
+            imbalance_ratio = n_neg / n_pos if n_pos > 0 else 1.0
+
+            # Set scale_pos_weight for XGBoost
+            if model_name == "xgboost" and hasattr(model, "set_params"):
+                model.set_params(scale_pos_weight=imbalance_ratio)
+
+            # Compute sample_weight for GradientBoosting
+            if model_name == "gradient_boosting":
+                sw = np.where(y_train == 1, imbalance_ratio, 1.0)
+            else:
+                sw = None
+
+            met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale, sample_weight=sw)
             met["model"] = model_name
             met["fold"] = fold
             metrics_rows.append(met)
