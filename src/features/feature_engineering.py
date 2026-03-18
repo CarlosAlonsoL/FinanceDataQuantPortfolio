@@ -57,6 +57,36 @@ def build_leaver_label(
     return label
 
 
+def add_forward_returns(
+    panel: pd.DataFrame,
+    horizons: list[int] | None = None,
+    *,
+    date_col: str = "date",
+    permno_col: str = "permno",
+    ret_col: str = "ret",
+) -> pd.DataFrame:
+    """Add forward cumulative return columns: fwd_ret_{h}d for each horizon h.
+
+    Forward return at horizon h = cumulative return from day t+1 to t+h.
+    Uses groupby(permno) to avoid cross-firm contamination.
+    """
+    if horizons is None:
+        horizons = [1, 5, 21, 63]
+    panel = panel.sort_values([permno_col, date_col]).copy()
+    for h in horizons:
+        col_name = f"fwd_ret_{h}d"
+        if h == 1:
+            # Forward 1-day return = next day's return
+            panel[col_name] = panel.groupby(permno_col)[ret_col].shift(-1)
+        else:
+            # Forward h-day cumulative return = product of (1+ret) over next h days, minus 1
+            panel[col_name] = (
+                panel.groupby(permno_col)[ret_col]
+                .transform(lambda x: (1 + x).rolling(h).apply(lambda y: y.prod() - 1, raw=True).shift(-h))
+            )
+    return panel
+
+
 def build_feature_panel(
     panel: pd.DataFrame,
     config: dict | None = None,
@@ -85,6 +115,9 @@ def build_feature_panel(
     panel = add_quality_proxy(panel, vol_window=63)
     panel = build_market_cap_rank(panel)
 
+    # Forward returns for IC computation (MODEL-02 IC decay)
+    panel = add_forward_returns(panel, horizons=[1, 5, 21, 63])
+
     panel["label_join"] = build_joiner_label(panel, forward_days=label_days)
     panel["label_leave"] = build_leaver_label(panel, forward_days=label_days)
 
@@ -98,13 +131,14 @@ def build_feature_panel(
         + ["market_cap", "market_cap_rank", "size_percentile", "quality_proxy"]
     )
     feat_cols = [c for c in feat_cols if c in panel.columns]
+    fwd_ret_cols = [c for c in panel.columns if c.startswith("fwd_ret_")]
     key_feats = [c for c in ["ret_21d", "market_cap_rank", "size_percentile"] if c in panel.columns]
     if key_feats:
         panel = panel.dropna(subset=key_feats)
 
     base_cols = ["date", "permno", "ticker"]
-    features_join = panel[base_cols + feat_cols + ["label_join"]].copy()
-    features_leave = panel[base_cols + feat_cols + ["label_leave"]].copy()
+    features_join = panel[base_cols + feat_cols + fwd_ret_cols + ["label_join"]].copy()
+    features_leave = panel[base_cols + feat_cols + fwd_ret_cols + ["label_leave"]].copy()
     return features_join, features_leave
 
 
