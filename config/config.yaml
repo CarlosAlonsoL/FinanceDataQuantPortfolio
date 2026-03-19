@@ -26,7 +26,7 @@ features:
 
 # Models
 models:
-  types: ["logistic", "random_forest", "gradient_boosting", "xgboost"]
+  types: ["logistic", "random_forest", "xgboost", "lightgbm"]
   train_years: 5
   test_years: 1
   random_state: 42
