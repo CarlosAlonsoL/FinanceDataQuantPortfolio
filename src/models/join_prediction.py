@@ -138,6 +138,7 @@ def run_join_prediction(
         scale = model_name == "logistic"
         print(f"\n[{time.strftime('%H:%M:%S')}] Model {m_idx+1}/{n_models}: {model_name.upper()}")
         fold_times = []
+        model_use_gpu = use_gpu
 
         for fold, (train_idx, test_idx) in enumerate(splits):
             X_train, X_test = X.loc[train_idx], X.loc[test_idx]
@@ -162,7 +163,16 @@ def run_join_prediction(
                 sw = None
 
             t0 = time.time()
-            met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale, sample_weight=sw)
+            try:
+                met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale, sample_weight=sw)
+            except Exception as e:
+                if "CUDA" in str(e) and model_name == "lightgbm" and model_use_gpu:
+                    print(f"  [{time.strftime('%H:%M:%S')}] LightGBM CUDA not available — falling back to CPU")
+                    model_use_gpu = False
+                    model = _get_model(model_name, cfg, random_state, use_gpu=False)
+                    met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale, sample_weight=sw)
+                else:
+                    raise
             elapsed = time.time() - t0
             fold_times.append(elapsed)
 
