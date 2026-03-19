@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
 from src.utils.config_loader import load_config, get_section
-from src.models.model_utils import make_rolling_splits, train_and_evaluate, get_feature_columns, detect_gpu
+from src.models.model_utils import make_rolling_splits, train_and_evaluate, get_feature_columns, detect_gpu, _predict_proba
 
 try:
     import xgboost as xgb  # noqa: F401
@@ -180,7 +180,7 @@ def run_join_prediction(
             met["model"] = model_name
             met["fold"] = fold
             metrics_rows.append(met)
-            proba = model.predict_proba(X_test)[:, 1]
+            proba = _predict_proba(model, X_test)[:, 1]
             for i, idx in enumerate(test_idx):
                 all_scores.append({
                     "date": date_idx.loc[idx],

@@ -50,6 +50,21 @@ def make_rolling_splits(
     return splits
 
 
+def _predict_proba(model: Any, X_test: pd.DataFrame) -> np.ndarray:
+    """Run predict_proba, using DMatrix for XGBoost GPU models to avoid device mismatch."""
+    try:
+        import xgboost as xgb
+        if isinstance(model, xgb.XGBClassifier) and getattr(model, "device", None) == "cuda":
+            dtest = xgb.DMatrix(X_test)
+            raw = model.get_booster().predict(dtest)
+            return np.column_stack([1 - raw, raw])
+    except Exception:
+        pass
+    if hasattr(model, "predict_proba"):
+        return model.predict_proba(X_test)
+    return model.predict(X_test)
+
+
 def train_and_evaluate(
     model: Any,
     X_train: pd.DataFrame,
@@ -65,7 +80,7 @@ def train_and_evaluate(
         X_train = pd.DataFrame(scaler.fit_transform(X_train), index=X_train.index, columns=X_train.columns)
         X_test = pd.DataFrame(scaler.transform(X_test), index=X_test.index, columns=X_test.columns)
     model.fit(X_train, y_train, sample_weight=sample_weight)
-    proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_test)
+    proba = _predict_proba(model, X_test)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_test)
     pred = (proba >= 0.5).astype(int)
     res = {}
     if y_test.nunique() >= 2:
