@@ -1,6 +1,7 @@
 """Train models predicting probability of joining S&P 500; save scores and metrics."""
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import time
 
 import pandas as pd
 import numpy as np
@@ -123,17 +124,28 @@ def run_join_prediction(
     splits = make_rolling_splits(features_join, train_years=train_years, test_years=test_years, date_col="date")
     all_scores = []
     metrics_rows = []
+    n_folds = len(splits)
+    n_models = len(model_types)
 
-    for model_name in model_types:
+    print(f"\n{'='*60}")
+    print(f"JOIN PREDICTION — {n_models} model(s), {n_folds} folds each")
+    print(f"{'='*60}")
+
+    for m_idx, model_name in enumerate(model_types):
         model = _get_model(model_name, cfg, random_state, use_gpu=use_gpu)
         if model is None:
             continue
         scale = model_name == "logistic"
+        print(f"\n[{time.strftime('%H:%M:%S')}] Model {m_idx+1}/{n_models}: {model_name.upper()}")
+        fold_times = []
+
         for fold, (train_idx, test_idx) in enumerate(splits):
             X_train, X_test = X.loc[train_idx], X.loc[test_idx]
             y_train, y_test = y.loc[train_idx], y.loc[test_idx]
             if y_train.nunique() < 2 or y_test.nunique() < 2:
+                print(f"  [{time.strftime('%H:%M:%S')}] Fold {fold+1:02d}/{n_folds} — skipped (single class)")
                 continue
+
             # Compute class imbalance ratio for this fold
             n_pos = y_train.sum()
             n_neg = len(y_train) - n_pos
@@ -149,7 +161,22 @@ def run_join_prediction(
             else:
                 sw = None
 
+            t0 = time.time()
             met = train_and_evaluate(model, X_train, y_train, X_test, y_test, scale=scale, sample_weight=sw)
+            elapsed = time.time() - t0
+            fold_times.append(elapsed)
+
+            avg_time = sum(fold_times) / len(fold_times)
+            remaining = (n_folds - fold - 1) * avg_time
+            eta = time.strftime('%H:%M:%S', time.localtime(time.time() + remaining))
+
+            auc = met.get("roc_auc", float("nan"))
+            print(
+                f"  [{time.strftime('%H:%M:%S')}] Fold {fold+1:02d}/{n_folds} | "
+                f"train={len(X_train):>7,} test={len(X_test):>6,} | "
+                f"AUC={auc:.4f} | {elapsed:.1f}s | ETA {eta}"
+            )
+
             met["model"] = model_name
             met["fold"] = fold
             metrics_rows.append(met)
@@ -160,6 +187,9 @@ def run_join_prediction(
                     "permno": permno.loc[idx],
                     f"p_join_{model_name}": proba[i],
                 })
+
+        total_model_time = sum(fold_times)
+        print(f"  [{time.strftime('%H:%M:%S')}] {model_name.upper()} done — total {total_model_time/60:.1f} min")
 
     scores_df = pd.DataFrame(all_scores)
     if not scores_df.empty:
