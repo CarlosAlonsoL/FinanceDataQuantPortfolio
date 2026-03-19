@@ -34,10 +34,14 @@ def build_joiner_label(
 ) -> pd.Series:
     """Label = 1 if firm enters S&P 500 in next forward_days trading days, else 0."""
     panel = panel.sort_values([permno_col, date_col]).copy()
-    s = panel.groupby(permno_col)[is_sp500_col]
-    # Max in next forward_days: shift(-1) then rolling(forward_days).max()
-    next_max = s.shift(-1).rolling(forward_days, min_periods=1).max()
-    label = ((panel[is_sp500_col] == False) & (next_max == True)).astype(int)
+    # Reverse-roll-reverse within each permno to get a true forward-looking max.
+    # At day t: max of is_sp500 over [t+1, t+forward_days].
+    future_max = (
+        panel.groupby(permno_col)[is_sp500_col]
+        .transform(lambda x: x.iloc[::-1].rolling(forward_days, min_periods=1).max().iloc[::-1])
+        .shift(-1)
+    )
+    label = ((panel[is_sp500_col] == False) & (future_max == True)).astype(int)
     return label
 
 
@@ -51,9 +55,14 @@ def build_leaver_label(
 ) -> pd.Series:
     """Label = 1 if firm exits S&P 500 in next forward_days trading days, else 0."""
     panel = panel.sort_values([permno_col, date_col]).copy()
-    s = panel.groupby(permno_col)[is_sp500_col]
-    next_min = s.shift(-1).rolling(forward_days, min_periods=1).min()
-    label = ((panel[is_sp500_col] == True) & (next_min == False)).astype(int)
+    # Reverse-roll-reverse within each permno to get a true forward-looking min.
+    # At day t: min of is_sp500 over [t+1, t+forward_days].
+    future_min = (
+        panel.groupby(permno_col)[is_sp500_col]
+        .transform(lambda x: x.iloc[::-1].rolling(forward_days, min_periods=1).min().iloc[::-1])
+        .shift(-1)
+    )
+    label = ((panel[is_sp500_col] == True) & (future_min == False)).astype(int)
     return label
 
 
