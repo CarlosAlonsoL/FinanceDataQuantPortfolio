@@ -69,12 +69,18 @@ def _detect_model_name(join_scores: pd.DataFrame) -> str:
     return cols[0].replace("p_join_", "") if cols else "xgboost"
 
 
-def _run_strategy(bt: Backtester, weights: pd.DataFrame, name: str) -> dict:
+def _run_strategy(bt: Backtester, weights: pd.DataFrame, name: str,
+                   start_date: pd.Timestamp | None = None) -> dict:
     """Run backtest and compute full metrics for a strategy."""
     if weights.empty:
         print(f"  WARNING: {name} portfolio is empty -- skipping.")
         return None
     result = bt.run_backtest(weights)
+    if start_date is not None:
+        for key in ("returns", "turnover", "gross_exposure", "net_exposure",
+                     "transaction_costs"):
+            if key in result and hasattr(result[key], "index"):
+                result[key] = result[key][result[key].index >= start_date]
     metrics = compute_performance_metrics(result["returns"])
     metrics["avg_daily_turnover"] = float(result["turnover"].mean())
     metrics["avg_gross_exposure"] = float(result["gross_exposure"].mean())
@@ -107,6 +113,16 @@ def main() -> None:
     print(f"  Panel: {len(panel):,} rows, {panel['permno'].nunique():,} stocks")
     print(f"  Score dates: {join_scores['date'].nunique():,}")
 
+    # Determine when the predictive model first produces signals.  All
+    # strategy returns (including the omniscient benchmark) are trimmed to
+    # start from this date so that every strategy is evaluated over an
+    # identical period — the one where the predictive model can actually
+    # trade.  Without this trim the omniscient and panel-derived strategies
+    # show a long flat segment (1995-2004) that inflates the backtest
+    # horizon while contributing zero information about strategy quality.
+    signal_start = min(join_scores["date"].min(), leave_scores["date"].min())
+    print(f"  Signal start date: {signal_start:%Y-%m-%d}")
+
     backtest_cfg = cfg.get("backtest", {})
     bt = Backtester(panel, transaction_cost_bps=backtest_cfg.get("transaction_cost_bps", 10))
 
@@ -115,7 +131,7 @@ def main() -> None:
     pf_weights = build_perfect_foresight_portfolio(
         panel, None, None, forward_days=63, top_decile=0.10
     )
-    omni = _run_strategy(bt, pf_weights, "Omniscient")
+    omni = _run_strategy(bt, pf_weights, "Omniscient", start_date=signal_start)
 
     # ── 2. Predictive strategy: quantile-based (original) ────────────────
     print("\n2. Building quantile-based predictive strategy...")
@@ -123,7 +139,7 @@ def main() -> None:
         join_scores, leave_scores, panel, config=cfg,
         top_decile=0.10, weighting="equal", model_name=model_name,
     )
-    quantile_strat = _run_strategy(bt, q_weights, "Predictive (quantile)")
+    quantile_strat = _run_strategy(bt, q_weights, "Predictive (quantile)", start_date=signal_start)
 
     # ── 3. Top-N strategies (symmetric) ──────────────────────────────────
     print("\n3. Building top-N predictive strategies...")
@@ -137,7 +153,7 @@ def main() -> None:
                 n_long=n, n_short=n,
                 weighting=w_scheme, gross_exposure=2.0, model_name=model_name,
             )
-            s = _run_strategy(bt, tw, name)
+            s = _run_strategy(bt, tw, name, start_date=signal_start)
             if s:
                 topn_strategies.append(s)
 
@@ -153,7 +169,7 @@ def main() -> None:
                 n_long=n, n_short=n, alpha=alpha, beta=alpha,
                 weighting="equal", gross_exposure=2.0, model_name=model_name,
             )
-            s = _run_strategy(bt, cw, name)
+            s = _run_strategy(bt, cw, name, start_date=signal_start)
             if s:
                 composite_strategies.append(s)
 
@@ -168,7 +184,7 @@ def main() -> None:
             n_long=n_l, n_short=n_s,
             weighting="equal", gross_exposure=2.0, model_name=model_name,
         )
-        s = _run_strategy(bt, aw, name)
+        s = _run_strategy(bt, aw, name, start_date=signal_start)
         if s:
             asym_strategies.append(s)
 
@@ -184,7 +200,7 @@ def main() -> None:
                 n_long=n, n_short=n, gamma=gamma,
                 gross_exposure=2.0, model_name=model_name,
             )
-            s = _run_strategy(bt, vw, name)
+            s = _run_strategy(bt, vw, name, start_date=signal_start)
             if s:
                 vol_strategies.append(s)
 
@@ -199,7 +215,7 @@ def main() -> None:
             n_long=n, n_short=n, mom_window=21,
             weighting="equal", gross_exposure=2.0, model_name=model_name,
         )
-        s = _run_strategy(bt, mw, name)
+        s = _run_strategy(bt, mw, name, start_date=signal_start)
         if s:
             mom_strategies.append(s)
 
