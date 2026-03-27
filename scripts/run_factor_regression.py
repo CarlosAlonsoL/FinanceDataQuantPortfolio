@@ -73,11 +73,10 @@ def load_factors():
     return factors
 
 
-def load_strategy_returns():
-    """Reconstruct best strategy returns from backtest."""
+def _load_common():
+    """Load panel, scores, and backtester shared across strategies."""
     from src.utils.config_loader import load_config
     from src.data.load_data import load_config_paths
-    from src.portfolio.portfolio_construction import build_long_short_portfolio
     from src.backtesting.backtester import Backtester
 
     cfg = load_config()
@@ -93,15 +92,49 @@ def load_strategy_returns():
     p_cols = [c for c in join_scores.columns if c.startswith("p_join_")]
     model_name = p_cols[0].replace("p_join_", "") if p_cols else "xgboost"
 
+    signal_start = min(join_scores["date"].min(), leave_scores["date"].min())
+    bt = Backtester(panel, transaction_cost_bps=10)
+
+    return cfg, panel, join_scores, leave_scores, model_name, signal_start, bt
+
+
+def _trim_returns(result, signal_start):
+    """Trim backtest returns to signal start date."""
+    ret = result["returns"]
+    return ret[ret.index >= signal_start]
+
+
+def load_strategy_returns():
+    """Reconstruct best strategy returns from backtest."""
+    from src.portfolio.portfolio_construction import build_long_short_portfolio
+
+    cfg, panel, join_scores, leave_scores, model_name, signal_start, bt = _load_common()
+
     print(f"Building quantile strategy returns (model={model_name})...")
     weights = build_long_short_portfolio(
         join_scores, leave_scores, panel, config=cfg,
         top_decile=0.10, weighting="equal", model_name=model_name,
     )
 
-    bt = Backtester(panel, transaction_cost_bps=10)
     result = bt.run_backtest(weights)
-    return result["returns"]
+    return _trim_returns(result, signal_start)
+
+
+def load_composite_returns():
+    """Reconstruct best composite strategy (Composite-5, alpha=0.25) returns."""
+    from src.portfolio.portfolio_construction import build_composite_portfolio
+
+    cfg, panel, join_scores, leave_scores, model_name, signal_start, bt = _load_common()
+
+    print(f"Building Composite-5 (a=0.25) returns (model={model_name})...")
+    weights = build_composite_portfolio(
+        join_scores, leave_scores, panel,
+        n_long=5, n_short=5, alpha=0.25, beta=0.25,
+        weighting="equal", gross_exposure=2.0, model_name=model_name,
+    )
+
+    result = bt.run_backtest(weights)
+    return _trim_returns(result, signal_start)
 
 
 def run_regression(returns, factors):
@@ -153,13 +186,24 @@ def main():
     TABLES.mkdir(parents=True, exist_ok=True)
 
     factors = load_factors()
+
+    # 1. Quantile strategy (best risk-adjusted)
+    print("\n── Quantile strategy ──")
     returns = load_strategy_returns()
     results = run_regression(returns, factors)
-
     out_path = TABLES / "factor_regression.csv"
     results.to_csv(out_path, index=False)
     print(f"\nSaved to {out_path}")
     print(results.to_string(index=False))
+
+    # 2. Composite-5 strategy (best composite, beats omniscient in return)
+    print("\n── Composite-5 (a=0.25) strategy ──")
+    comp_returns = load_composite_returns()
+    comp_results = run_regression(comp_returns, factors)
+    comp_path = TABLES / "factor_regression_composite.csv"
+    comp_results.to_csv(comp_path, index=False)
+    print(f"\nSaved to {comp_path}")
+    print(comp_results.to_string(index=False))
 
 
 if __name__ == "__main__":

@@ -53,6 +53,9 @@ def run_sweep(
     """Run holding-period x top-N grid with top-N portfolios."""
     holding_periods = holding_periods or _DEFAULT_HOLDING_PERIODS
     n_positions_list = n_positions_list or _DEFAULT_N_POSITIONS
+    # Trim returns to the signal start date so metrics reflect the period
+    # where the predictive model can actually trade (consistent with run_backtest.py).
+    signal_start = min(join_scores["date"].min(), leave_scores["date"].min())
     bt = Backtester(panel, transaction_cost_bps=transaction_cost_bps)
     rows = []
     for hp in holding_periods:
@@ -76,6 +79,7 @@ def run_sweep(
                 continue
             result = bt.run_backtest(weights)
             ret = result["returns"]
+            ret = ret[ret.index >= signal_start]
             m = compute_performance_metrics(ret)
             to = float(result["turnover"].mean())
             n_pos = weights.groupby("date").size().mean()

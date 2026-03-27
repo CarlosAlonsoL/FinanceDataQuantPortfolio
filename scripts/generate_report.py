@@ -247,6 +247,9 @@ def build_main_report() -> str:
     factor_table = _read_csv_as_table(TABLES / "factor_regression.csv", fmt={
         "coefficient": _f4, "t_stat": _f3, "p_value": _f4,
     })
+    factor_composite_table = _read_csv_as_table(TABLES / "factor_regression_composite.csv", fmt={
+        "coefficient": _f4, "t_stat": _f3, "p_value": _f4,
+    })
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -259,7 +262,7 @@ def build_main_report() -> str:
 <body>
 
 <h1 style="font-size: 2.5rem; text-align: center; border: none;">S&P 500 Joiners & Leavers<br>Portfolio Construction</h1>
-<p style="text-align: center; color: #666; font-size: 1.1rem;">Project 1 &mdash; Strategic Portfolio Management</p>
+<p style="text-align: center; color: #666; font-size: 1.1rem;">Project 1 | Strategic Portfolio Management</p>
 <p style="text-align: center; font-size: 0.95rem;"><a href="https://github.com/CarlosAlonsoL/FinanceDataQuantPortfolio" style="color: #3498db;">View source code on GitHub &rarr;</a></p>
 
 <div class="toc">
@@ -276,11 +279,12 @@ def build_main_report() -> str:
     <li><a href="#factors">Factor risk decomposition</a></li>
     <li><a href="#interpretation">Economic interpretation</a></li>
     <li><a href="#references">References</a></li>
+
 </ol>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<h1 id="institutional">1. Institutional Rules & S&P 500 Index</h1>
+<h1 id="institutional">1. Institutional rules & S&P 500 index</h1>
 
 <p>The S&P 500 tracks 500 large-cap U.S. stocks, weighted by market capitalization. It is not purely rules-based: an Index Committee at S&P Dow Jones Indices decides which stocks get added or removed, using a mix of quantitative criteria and discretion.</p>
 
@@ -400,14 +404,14 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <h1 id="strategies">5. Strategy variants</h1>
 
-<h3>5.1 Benchmark: Perfect Foresight (Omniscient)</h3>
+<h3>5.1 Benchmark: perfect foresight (omniscient)</h3>
 <p>Uses realized future S&P 500 membership to construct the portfolio. At each monthly rebalance date, the strategy looks 63 trading days (~3 months) ahead: stocks not currently in the S&amp;P 500 that will be members in 63 days are bought (long), and current members that will no longer be members in 63 days are sold (short). Positions are held until the next monthly rebalance, when the portfolio is reconstructed with updated future information. The top decile of each signal is selected with equal weighting, yielding ~7,745 positions per side.</p>
 <p>This is an unrealizable benchmark. It provides an upper bound on the alpha achievable if the investor had perfect knowledge of future index changes.</p>
 
-<h3>5.2 Quantile-Based (Baseline)</h3>
+<h3>5.2 Quantile-based (baseline)</h3>
 <p>Selects the top decile (10%) of stocks by predicted probability for each leg. Yields ~743 stocks per side, which is diversified but dilutes the signal.</p>
 
-<h3>5.3 Top-N (Concentrated)</h3>
+<h3>5.3 Top-N (concentrated)</h3>
 <p>Selects only the top N stocks by predicted probability. Calibration-independent: pure rank ordering. Tested with N = 5, 10, 20, 30, 50.</p>
 
 <h3>5.4 Composite score</h3>
@@ -428,15 +432,15 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 <!-- ── 6.1 Cumulative returns overview ─────────────────────────────── -->
 <h3>6.1 Cumulative returns overview</h3>
 
-<p>This chart shows how $1 invested grows over time for the best strategy in each category. Each line is a strategy; higher means more cumulative profit. A flat line means no returns; a dip means losses.</p>
+<p>This chart shows how $1 invested grows over time. Each line represents the best strategy by Sharpe ratio within its category (omniscient, quantile, composite, asymmetric, vol-scaled). Top-5 (probability) is also included because it has the highest absolute return of all predictive strategies, not because it is the best risk-adjusted in its group.</p>
 
-{_figure(FIGURES / "cumulative_returns_comparison.png", "Figure 3: Cumulative returns comparison across key strategies")}
+{_figure(FIGURES / "cumulative_returns_comparison.png", "Figure 3: Cumulative returns comparison, best Sharpe per category plus highest-return strategy")}
 
 <p>The first thing that stands out is the gap between the Omniscient benchmark (blue) and everything else. The predictive strategies cluster near the bottom of the chart, but they are all positive. A few things to notice:</p>
 
 <ul>
 <li>The Omniscient (blue) has perfect foresight and still only gets a Sharpe of 0.60 with a 55% drawdown. This is a hard problem: even knowing exactly which stocks will join or leave, the price reactions are noisy and unpredictable.</li>
-<li>Composite-5 (red) has the highest cumulative return among predictive strategies, but it also has the worst drawdown (81%). It nearly wipes out multiple times.</li>
+<li>Top-5 probability (red) has the highest cumulative return among predictive strategies (14.8% annual), but with extreme volatility (35%) and a 70% drawdown. Composite-5 is close behind (14.1% annual) with an even worse drawdown of 81%.</li>
 <li>All strategies are evaluated over the 2005&ndash;2024 period, starting from when the ML model first produces out-of-sample predictions. The model needs ~10 years of historical reconstitution events (1995&ndash;2004) for training before it can generate useful signals.</li>
 </ul>
 
@@ -473,7 +477,7 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 
 {_figure(FIGURES / "cumulative_returns.png", "Figure 4: Cumulative returns for Quantile (top 10%)")}
 
-<p>Its worst drawdown was 30%, during the COVID crash in March 2020. For context, the concentrated strategies (Top-5, Composite-5) drew down 70-81% in the same period:</p>
+<p>Its worst drawdown was 30%, during the 2008&ndash;2009 financial crisis. Since then, drawdowns have been shallow. COVID in March 2020 only caused a ~12% dip. For context, the concentrated strategies suffered far worse: Top-5 drew down 70% and Composite-5 drew down 81% at their peaks:</p>
 
 {_figure(FIGURES / "drawdown.png", "Figure 5: Drawdown profile for Quantile (top 10%)")}
 
@@ -498,12 +502,16 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <h1 id="annual">7. Return trajectory over time</h1>
 
-<p>The question any allocator asks: does the strategy work across different periods, or did it get lucky in one regime? These charts break down performance over time.</p>
+<p>Does the strategy work across different periods, or did it get lucky in one regime? These charts break down performance over time.</p>
 
 <h3>7.1 Rolling 3-year annualised return</h3>
 <p>Each bar is the annualised return over a 3-year window centered on that date. Green = positive, red = negative. Ideally the bars are all green and roughly the same height.</p>
 
 {_figure(FIGURES / "annual_returns.png", "Figure 9: Rolling 3-year annualised return for best predictive strategy")}
+
+<p>An important pattern emerges from this chart: the strategy's performance has improved over time. The early windows (2008&ndash;2013) show modest or negative returns, consistent with the financial crisis and its aftermath disrupting normal index reconstitution dynamics. But from 2015 onward, the rolling returns are consistently positive and increasing, with the most recent 3-year windows showing the strongest annualised returns in the entire sample.</p>
+
+<p>This is not a strategy that worked once and stopped. If anything, the signal has strengthened in recent years. A possible explanation: as passive indexing has grown (ETF assets tracking the S&amp;P 500 have roughly tripled since 2015), the mechanical buying and selling pressure around index changes has intensified, making the reconstitution premium larger and more predictable.</p>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <h3>7.2 Rolling risk metrics</h3>
@@ -512,7 +520,9 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 
 {_figure(FIGURES / "rolling_metrics.png", "Figure 10: Rolling 3-year Sharpe, drawdown, and volatility")}
 
-<h3>7.3 Subperiod Analysis (Rolling 3-Year Windows)</h3>
+<p>The rolling Sharpe panel confirms the trend: the strategy's risk-adjusted performance has improved. Post-2020 windows consistently show Sharpe ratios above 1.5, compared with sub-0.5 in the early years. Meanwhile, rolling volatility has declined and drawdowns have become shallower, suggesting the strategy is not just earning more but doing so with less risk.</p>
+
+<h3>7.3 Subperiod analysis (rolling 3-year windows)</h3>
 <p>Same data in table form. Each row is a 3-year window. Look at whether the numbers stay stable or swing wildly:</p>
 
 {subperiod_table}
@@ -524,7 +534,7 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 
 <p>In the heatmaps: green cells are good, red cells are bad. If the whole map is green, the strategy is robust to parameter choice. If only one corner is green, it is fragile.</p>
 
-<h3>8.1 Robustness Grid</h3>
+<h3>8.1 Robustness grid</h3>
 {robustness_table}
 
 {_figure(FIGURES / "robustness_heatmap_sharpe_ratio.png", "Figure 11: Sharpe ratio across parameter combinations (brighter green = better)")}
@@ -561,23 +571,31 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 <p>The regression model is:</p>
 <p style="text-align:center;"><code>R<sub>p</sub> - R<sub>f</sub> = &alpha; + &beta;<sub>MKT</sub>(MKT-RF) + &beta;<sub>SMB</sub>(SMB) + &beta;<sub>HML</sub>(HML) + &beta;<sub>UMD</sub>(UMD) + &epsilon;</code></p>
 
-<p>If the intercept (&alpha;) is positive and statistically significant, the strategy is generating returns that these four factors cannot explain. Since the portfolio is dollar-neutral by construction (equal long/short exposure), the market beta should be close to zero.</p>
+<p>If the intercept (&alpha;) is positive and statistically significant, the strategy is generating returns that these four factors cannot explain. The portfolio is dollar-neutral by construction, but dollar-neutrality does not guarantee zero market beta: the long and short legs can have different betas.</p>
 
 <h3>Regression results (Quantile strategy)</h3>
 {factor_table}
 
 <p>Factor data from Kenneth French's data library (daily). Newey-West standard errors (10 lags) to account for serial correlation.</p>
 
-<p>The alpha is -1.0% annualised and not statistically significant (t = -1.01, p = 0.31). This means the strategy's returns are largely explained by factor exposures rather than pure stock-picking skill. The factor loadings tell us where the returns come from:</p>
+<p>The alpha is +1.2% annualised but not statistically significant (t = 0.97, p = 0.33). The strategy's returns are largely explained by factor exposures rather than pure stock-picking skill. The factor loadings tell us where the returns come from:</p>
 
 <ul>
-<li>MKT_RF = 0.16 (t = 9.5): the portfolio has a small positive market beta despite being dollar-neutral. The long leg tends to have slightly higher beta stocks than the short leg.</li>
-<li>SMB = -0.08 (t = -5.5): the strategy is short small caps. This makes sense: stocks joining the S&amp;P 500 are large caps, stocks leaving tend to be shrinking.</li>
-<li>HML = 0.02 (t = 1.2, n.s.): no meaningful value tilt.</li>
-<li>MOM = 0.21 (t = 15.1): the strongest loading. The strategy is long recent winners and short recent losers. Stocks about to join the index tend to have been outperforming; stocks about to leave have been underperforming.</li>
+<li>MKT_RF = 0.25 (t = 13.0): the portfolio has a meaningful positive market beta despite being dollar-neutral. The long leg holds higher-beta stocks than the short leg, so the hedge is imperfect.</li>
+<li>SMB = -0.15 (t = -7.1): the strategy is short small caps. This makes sense: stocks joining the S&amp;P 500 are large caps, stocks leaving tend to be shrinking.</li>
+<li>HML = 0.003 (t = 0.2, n.s.): no meaningful value tilt.</li>
+<li>MOM = 0.30 (t = 21.5): the strongest loading by far. The strategy is long recent winners and short recent losers. Stocks about to join the index tend to have been outperforming; stocks about to leave have been underperforming.</li>
 </ul>
 
-<p>R-squared of 0.37 means these four factors explain about a third of the return variance. The remaining two-thirds is idiosyncratic, which is expected for a strategy trading specific corporate events.</p>
+<p>R-squared of 0.56 means these four factors explain over half the return variance. The remaining portion is idiosyncratic, which is expected for a strategy trading specific corporate events.</p>
+
+<h3>Regression results (Composite-5 strategy)</h3>
+
+<p>The Composite-5 (&alpha;=0.25) strategy is the highest-returning predictive strategy (14.1% annual), beating even the omniscient benchmark in absolute terms. Does it generate genuine alpha, or is the extra return just factor exposure?</p>
+
+{factor_composite_table}
+
+<p>The Composite-5 generates an annualised alpha of 15.8% (t = 2.41, p = 0.016), which is statistically significant at the 5% level. Unlike the Quantile strategy, this concentrated approach produces returns that the four factors cannot fully explain. The momentum loading is also much larger (MOM = 1.07 vs 0.30), and R-squared drops to 0.30 vs 0.56 for the Quantile strategy. With only 5 positions per side, more of the return comes from individual stock picks rather than systematic factor tilts. A single earnings surprise or analyst upgrade can dominate the portfolio's return for that month.</p>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <h1 id="interpretation">10. Economic interpretation</h1>
@@ -586,7 +604,7 @@ When a stock is added, it historically gained +3% to +7% in abnormal return (now
 
 <p>The omniscient benchmark, which knows every future S&amp;P 500 change before it happens, achieves a Sharpe of 0.60. That is not a great Sharpe for a strategy with perfect information. It tells us that index reconstitution is a noisy signal: stock prices around additions and deletions move unpredictably even when the event itself is certain.</p>
 
-<p>Given that ceiling, the quantile-based strategy actually exceeds the omniscient's risk-adjusted return. Its Sharpe of 0.748 vs 0.60 for the omniscient, with lower volatility (8.0% vs 17.7%) and a smaller drawdown (30% vs 55%). The diversification across ~743 positions per side helps a lot here &mdash; by spreading bets, the quantile strategy avoids the idiosyncratic blow-ups that hurt even the perfect-foresight portfolio.</p>
+<p>Given that ceiling, the quantile-based strategy actually exceeds the omniscient's risk-adjusted return. Its Sharpe of 0.748 vs 0.60 for the omniscient, with lower volatility (8.0% vs 17.7%) and a smaller drawdown (30% vs 55%). The diversification across ~743 positions per side helps: by spreading bets, the quantile strategy avoids the idiosyncratic blow-ups that hurt even the perfect-foresight portfolio.</p>
 
 <p>Concentrated strategies (Top-5, Composite-5) earn more in absolute terms but with painful drawdowns (70-81%). The more positions you add, the worse the Sharpe gets, which confirms the model's signal is strongest at the top of the ranking and dilutes quickly.</p>
 

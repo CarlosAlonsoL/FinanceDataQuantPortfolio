@@ -89,11 +89,16 @@ def plot_strategy_comparison(
     fig, ax = plt.subplots()
     for label, ret in series.items():
         cum = (1 + ret).cumprod()
-        ax.plot(cum.index, cum.values, linewidth=2, label=label)
+        style = {}
+        if label.startswith("Highest return:"):
+            style = {"linestyle": "--", "linewidth": 2.5, "color": "#e67e22", "alpha": 0.9}
+        else:
+            style = {"linewidth": 2}
+        ax.plot(cum.index, cum.values, label=label, **style)
     ax.set_xlabel("Date")
     ax.set_ylabel("Cumulative return")
     ax.set_title(title)
-    ax.legend()
+    ax.legend(fontsize=9)
     fig.tight_layout()
     if save_path:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
@@ -159,8 +164,13 @@ def plot_robustness_heatmap(
     sns.heatmap(pivot, annot=True, fmt=".3f", cmap="RdYlGn", center=0, ax=ax,
                 linewidths=0.5, cbar_kws={"label": metric})
     ax.set_title(title or f"Robustness: {metric}")
-    ax.set_ylabel("Holding period (months)")
-    ax.set_xlabel("Probability threshold")
+    label_map = {
+        "holding_period_months": "Holding period (months)",
+        "prob_threshold": "Probability threshold",
+        "n_positions": "Number of top-N positions",
+    }
+    ax.set_ylabel(label_map.get(row_col, row_col))
+    ax.set_xlabel(label_map.get(col_col, col_col))
     fig.tight_layout()
     if save_path:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)

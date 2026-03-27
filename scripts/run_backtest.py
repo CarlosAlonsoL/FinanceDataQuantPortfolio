@@ -263,11 +263,11 @@ def main() -> None:
         key_series["Quantile (top 10%)"] = quantile_strat["result"]["returns"]
     if best:
         key_series[f"Best: {best['name']}"] = best["result"]["returns"]
-    # Also add best from each new category
-    for cat_name, cat_list in [("composite", composite_strategies),
+    # Also add best Sharpe from each new category
+    for cat_name, cat_list in [("top-N", topn_strategies),
+                                ("composite", composite_strategies),
                                 ("asymmetric", asym_strategies),
-                                ("vol-scaled", vol_strategies),
-                                ("mom-filter", mom_strategies)]:
+                                ("vol-scaled", vol_strategies)]:
         if cat_list:
             cat_best = max(cat_list, key=lambda s: s["metrics"].get("sharpe_ratio", -999))
             label = f"Best {cat_name}: {cat_best['name']}"
